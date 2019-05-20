@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.34/dist/web3.min.js"></script>
+		<script type="text/javascript" src="contratosByteCode.js"></script>
+		
+		<script>
+			var web3 = new Web3(new Web3.providers.HttpProvider(nodoConexion));
+			if (despliegueAlastria=='S'){
+				console.log("Desbloqueando cuentas de alastria")
+				desbloqueaCuentas();
+			}
+			
+			async function showDronRequested(){
+				limpiagrillaSolicitados()
+			
+				const contractDron = new web3.eth.Contract(ABIDron,direccionContratoDron); 
+				
+				var fila = 1
+				
+				for(var i=1;i<=6;i++){
+					if (getCookie('idDron'+i)!=""){
+						await contractDron.methods.getDroneRequested(i).call({from: cuentaPropietariaDron}, (error, result) => {
+							if (result[1]!=0){
+								document.getElementById('field' + fila + '1').value= i
+								document.getElementById('field' + fila + '2').value= result[0]
+								document.getElementById('field' + fila + '3').value= result[1]
+								fila++;
+							}
+							
+						});
+					}
+				}
+			
+			}
+			
+		
+			function asignaDron(field1,fila){
+						
+				idDron=document.getElementById(field1).value
+				idParcelaDestino = document.getElementById('field' + fila + '3').value
+				console.log("idDron=",idDron)
+			
+				var contractDron = new web3.eth.Contract(ABIDron,direccionContratoDron);
+				var isOK=contractDron.methods.allocateDron(cuentaPropietariaDron,parseInt(idDron),parseInt(idParcelaDestino))
+								.send({from: cuentaPropietariaDron, gas: 3000000}, (error, transactionHash) => {  })
+								.on('error', (error) => { 
+									console.log("error" + error)
+									
+								})
+								.on('receipt', (receipt) => {
+									alert("Dron Asignado")
+									console.log("Dron Asignado")
+									document.getElementById('field' + fila + '1').value= ""
+									document.getElementById('field' + fila + '2').value= ""
+									document.getElementById('field' + fila + '3').value= ""
+								});
+			}
+			
+			function liberaDron(field1,fila){
+						
+				idDron=document.getElementById(field1).value
+				console.log("idDron=",idDron)
+			
+				var contractDron = new web3.eth.Contract(ABIDron,direccionContratoDron);
+				var isOK=contractDron.methods.releaseDron(cuentaPropietariaDron,parseInt(idDron))
+								.send({from: cuentaPropietariaDron, gas: 3000000}, (error, transactionHash) => {  })
+								.on('error', (error) => { 
+									console.log("error" + error)
+									
+								})
+								.on('receipt', (receipt) => {
+									alert("Dron Liberado")
+									console.log("Dron Liberado")
+									document.getElementById('field_' + fila + '1').value= ""
+									document.getElementById('field_' + fila + '2').value= ""
+								});
+			}
+			
+			var countDron
+			async function getDronBusy(){
+				limpiagrillaOcupados()
+			
+				const contractDron = new web3.eth.Contract(ABIDron,direccionContratoDron); 
+				countDron = await contractDron.methods.balanceOf(cuentaPropietariaDron).call({from: cuentaPropietariaDron}, (error, result) => {
+					console.log("Numero Drones=" + result)
+				});
+				
+				var j=1
+				for(i=1;i<=countDron;i++){
+	
+						await contractDron.methods.getDrone(i).call({from: cuentaPropietariaDron}, (error, result) => {
+						
+						console.log("Dron No Disponible=" + result[5])
+						
+						if (result[5]==0){
+							document.getElementById('field_' + j + '1').value= i
+							document.getElementById('field_' + j + '2').value= result[3]
+							j++;
+						}
+						
+					});
+				}
+			}
+			
+			function limpiagrillaSolicitados(){
+				for(i=1;i<=6;i++){
+					document.getElementById('field' + i + '1').value= ""
+					document.getElementById('field' + i + '2').value= ""
+					document.getElementById('field' + i + '3').value= ""
+				}
+			}
+			
+			function limpiagrillaOcupados(){
+				for(i=1;i<=6;i++){
+					document.getElementById('field_' + i + '1').value= ""
+					document.getElementById('field_' + i + '2').value= ""
+				}
+			}
+			
+			function getCookie(cname) {
+			  var name = cname + "=";
+			  var decodedCookie = decodeURIComponent(document.cookie);
+			  var ca = decodedCookie.split(';');
+			  for(var i = 0; i <ca.length; i++) {
+				var c = ca[i];
+				while (c.charAt(0) == ' ') {
+				  c = c.substring(1);
+				}
+				if (c.indexOf(name) == 0) {
+				  return c.substring(name.length, c.length);
+				}
+			  }
+			  return "";
+			}
+			
+		</script>
+	</head>
+	<body>
+		<p><b>Gestiona Drones</b>
+		<br>
+		<br>
+		<input type="button" value="Consulta Drones Solicitados" onclick="showDronRequested()"/>
+		<br>
+		<br> Asignar
+		<br><table>
+				<tr>
+					<td>ID Dron</td>
+					<td>Parcela Origen</td>
+					<td>Parcela Destino</td>
+					<td>Asignar</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field11" />
+					</td>
+					<td>
+						<input type="label" id="field12" />
+					</td>
+					<td>
+						<input type="label" id="field13" />
+					</td>
+					<td>
+						<input type="button" value="Asigna Dron" id="field18" onclick="asignaDron('field11',1)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field21" />
+					</td>
+					<td>
+						<input type="label" id="field22" />
+					</td>
+					<td>
+						<input type="label" id="field23" />
+					</td>
+					<td>
+						<input type="button" value="Asigna Dron" id="field28" onclick="asignaDron('field21',2)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field31" />
+					</td>
+					<td>
+						<input type="label" id="field32" />
+					</td>
+					<td>
+						<input type="label" id="field33" />
+					</td>
+					<td>
+						<input type="button" value="Asigna Dron" id="field38" onclick="asignaDron('field31',3)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field41" />
+					</td>
+					<td>
+						<input type="label" id="field42" />
+					</td>
+					<td>
+						<input type="label" id="field43" />
+					</td>
+					<td>
+						<input type="button" value="Asigna Dron" id="field48" onclick="asignaDron('field41',4)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field51" />
+					</td>
+					<td>
+						<input type="label" id="field52" />
+					</td>
+					<td>
+						<input type="label" id="field53" />
+					</td>
+					<td>
+						<input type="button" value="Asigna Dron" id="field58" onclick="asignaDron('field51',5)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field61" />
+					</td>
+					<td>
+						<input type="label" id="field62" />
+					</td>
+					<td>
+						<input type="label" id="field63" />
+					</td>
+					<td>
+						<input type="button" value="Asigna Dron" id="field68" onclick="asignaDron('field61',6)"/>
+					</td>
+				</tr>
+			</table>
+			
+			<br><input type="button" value="Consulta Drones - Servicio Finalizado" onclick="getDronBusy()"/>
+			
+			<br>
+			<br>Liberar
+			<br>
+			<br><table>
+				<tr>
+					<td>ID Dron</td>
+					<td>Parcela Actual</td>
+					<td>Liberar</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field_11" />
+					</td>
+					<td>
+						<input type="label" id="field_12" />
+					</td>
+					<td>
+						<input type="button" value="Libera Dron" id="field_18" onclick="liberaDron('field_11',1)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field_21" />
+					</td>
+					<td>
+						<input type="label" id="field_22" />
+					</td>
+					<td>
+						<input type="button" value="Libera Dron" id="field_28" onclick="liberaDron('field_21',2)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field_31" />
+					</td>
+					<td>
+						<input type="label" id="field_32" />
+					</td>
+					<td>
+						<input type="button" value="Libera Dron" id="field_38" onclick="liberaDron('field_31',3)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field_41" />
+					</td>
+					<td>
+						<input type="label" id="field_42" />
+					</td>
+					<td>
+						<input type="button" value="Libera Dron" id="field_48" onclick="liberaDron('field_41',4)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field_51" />
+					</td>
+					<td>
+						<input type="label" id="field_52" />
+					</td>
+					<td>
+						<input type="button" value="Libera Dron" id="field_58" onclick="liberaDron('field_51',5)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field_61" />
+					</td>
+					<td>
+						<input type="label" id="field_62" />
+					</td>
+					<td>
+						<input type="button" value="Libera Dron" id="field_68" onclick="liberaDron('field_61',6)"/>
+					</td>
+				</tr>
+			</table>
+			
+			
+	</body>
+</html>

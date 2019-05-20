@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.34/dist/web3.min.js"></script>
+		<script type="text/javascript" src="contratosByteCode.js"></script>
+		
+		<script>
+			var web3 = new Web3(new Web3.providers.HttpProvider(nodoConexion));
+			if (despliegueAlastria=='S'){
+				console.log("Desbloqueando cuentas de alastria")
+				desbloqueaCuentas();
+			}
+			
+			var contractStudent
+			var mapContractAddress = new Map();
+			var mapContractAddress2 = new Map();
+			var mapkeys = new Map();
+			
+						
+			/////////////////Obteniendo las cuentas/////////////////
+			var cuentas;
+			web3.eth.personal.getAccounts(function(err, res){
+				cuentas=res; 
+				console.log(res); 
+				console.log(res.length);
+				var i;
+				var select = document.getElementById("cuentas");
+				var select1 = document.getElementById("field10");
+				var select2 = document.getElementById("field20");
+				var select3 = document.getElementById("field30");
+				for (i = 0; i < res.length; i++) { 
+					select.options[i] = new Option(res[i], i);
+					console.log(res[i]);
+				}
+			});
+			////////////////////////////////////////////////////////
+			
+				
+			async function addParcela(){
+				var e = document.getElementById("cuentas")
+				var propietario = e.options[e.selectedIndex].text 
+				var alturaMinima=document.getElementById("altMin").value
+				var alturaMaxima=document.getElementById("altMax").value
+				var longitud=document.getElementById("long").value
+				var e2 = document.getElementById("pesticidas")
+				var pesticida
+				if (e2.selectedIndex==0){
+					pesticida =  "10000" 
+				} else if (e2.selectedIndex==1){
+					pesticida =  "01000"
+				} else if (e2.selectedIndex==2){
+					pesticida =  "00100"
+				} else if (e2.selectedIndex==3){
+					pesticida =  "00010"
+				} else {
+					pesticida =  "00001"
+				}
+				
+				console.log("Propietario=" + propietario)
+				console.log("alturaMinima=" + alturaMinima)
+				console.log("alturaMaxima=" + alturaMaxima)
+				console.log("longitud=" + longitud)
+				console.log("pesticida=" + pesticida)
+				
+				var contractParcela = new web3.eth.Contract(ABIParcela,direccionContratoParcela);  
+				var idParcela
+				
+				///////estimacion de gas/////////////////////////////
+				var gas1
+				
+				await contractParcela.methods.createParcela(alturaMinima,alturaMaxima,longitud,pesticida).estimateGas(function(error, gasAmount){
+					console.log('El gas es===' + gasAmount);
+					gas1 = gasAmount
+				});
+								
+				////////////////////////////////////////////////////
+		
+				var idParcela=contractParcela.methods.createParcela(alturaMinima,alturaMaxima,longitud,pesticida)
+								.send({from: propietario, gas: parseInt(gas1)}, (error, transactionHash) => {  })
+								.on('error', (error) => { 
+									console.log("error" + error)
+									
+								})
+								.on('receipt', (receipt) => {
+									alert("Parcela creada exitosamente")
+									console.log("Parcela creada exitosamente")
+									console.log(receipt)
+									console.log("IdParcela...:" + receipt.events.ParcelaCreada.returnValues.idParcela);
+									setCookie(propietario,receipt.events.ParcelaCreada.returnValues.idParcela,2);
+								});
+							
+			}
+			
+			
+			
+			function setCookie(cname, cvalue, exdays) {
+			  var d = new Date();
+			  d.setTime(d.getTime() + (exdays*24*60*60*1000));
+			  var expires = "expires="+ d.toUTCString();
+			  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+			}
+			
+					
+			function getCookie(cname) {
+			  var name = cname + "=";
+			  var decodedCookie = decodeURIComponent(document.cookie);
+			  var ca = decodedCookie.split(';');
+			  for(var i = 0; i <ca.length; i++) {
+				var c = ca[i];
+				while (c.charAt(0) == ' ') {
+				  c = c.substring(1);
+				}
+				if (c.indexOf(name) == 0) {
+				  return c.substring(name.length, c.length);
+				}
+			  }
+			  return "";
+			}
+			
+			
+		</script>
+	</head>
+	<body >
+		<p><b>Registro de Parcelas</b>
+		<br>
+		<br>
+		
+		
+		<Table>
+			<tr>
+				<td>Propietario</td>
+				<td>
+					<select id="cuentas" ></select>
+				</td>
+			</tr>
+			
+			<tr>
+				<td>Altura Maxima (mt)</td>
+				<td>
+					<input type="text" id="altMax">
+				</td>
+			</tr>
+			<tr>
+				<td>Altura Minima (mt)</td>
+				<td>
+					<input type="text" id="altMin">
+				</td>
+			</tr>
+			<tr>
+				<td>Longitud (mt)</td>
+				<td>
+					<input type="text" id="long">
+				</td>
+			</tr>
+			<tr>
+				<td>Pesticida</td>
+				<td>
+					<select id='pesticidas' >
+					  <option value="1">Pesticida A</option>
+					  <option value="2">Pesticida B</option>
+					  <option value="3">Pesticida C</option>
+					  <option value="4">Pesticida D</option>
+					  <option value="5">Pesticida E</option>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<td colspan=2>
+					<input type="button" value="Registrar" onclick="addParcela()">
+				</td>
+			</tr>
+		</table>
+	</body>
+	</body>
+</html>
+	

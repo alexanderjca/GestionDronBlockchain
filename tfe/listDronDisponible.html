@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.34/dist/web3.min.js"></script>
+		<script type="text/javascript" src="contratosByteCode.js"></script>
+		
+		<script>
+			var web3 = new Web3(new Web3.providers.HttpProvider(nodoConexion));
+			if (despliegueAlastria=='S'){
+				console.log("Desbloqueando cuentas de alastria")
+				desbloqueaCuentas();
+			}
+			
+			var mapIdDronRequested = new Map();
+			
+			
+			/////////////////Obteniendo las cuentas/////////////////
+			var cuentas;
+			web3.eth.personal.getAccounts(function(err, res){
+				cuentas=res; 
+				console.log(res); 
+				console.log(res.length);
+				var i;
+				var select = document.getElementById("cuentas");
+				var select1 = document.getElementById("field10");
+				var select2 = document.getElementById("field20");
+				var select3 = document.getElementById("field30");
+				for (i = 0; i < res.length; i++) { 
+					select.options[i] = new Option(res[i], i);
+					console.log(res[i]);
+				}
+			});
+			////////////////////////////////////////////////////////
+			
+				
+			var countDron
+			async function getDronCreated(){
+				limpiagrillaSolicitados()
+			
+				const contractDron = new web3.eth.Contract(ABIDron,direccionContratoDron); 
+				countDron = await contractDron.methods.balanceOf(cuentaPropietariaDron).call({from: cuentaPropietariaDron}, (error, result) => {
+					console.log("Numero Drones=" + result)
+				});
+				
+				var j=1
+				for(i=1;i<=countDron;i++){
+	
+						await contractDron.methods.getDrone(i).call({from: cuentaPropietariaDron}, (error, result) => {
+						
+						console.log("Dron Disponible=" + result[5])
+						
+						if (result[5]==1){
+							document.getElementById('field' + j + '1').value= i
+							document.getElementById('field' + j + '2').value= result[0]
+							document.getElementById('field' + j + '3').value= result[1]
+							document.getElementById('field' + j + '4').value= result[2]
+							document.getElementById('field' + j + '5').value= result[3]
+							document.getElementById('field' + j + '6').value= result[4]
+							document.getElementById('field' + j + '7').value= result[6]
+							j++;
+						}
+						
+					});
+				}
+			}
+			
+			var countParcela
+			async function getTotalParcelas(){
+				var e = document.getElementById('cuentas')
+				var cuenta = e.options[e.selectedIndex].text
+				
+				const contractParcela = new web3.eth.Contract(ABIParcela,direccionContratoParcela); 
+				countParcela = await contractParcela.methods.balanceOf(cuenta).call({from: cuenta}, (error, result) => {
+					console.log("Numero Parcelas=" + result)
+				});
+				
+				var j=1
+				for(i=1;i<=6;i++){
+	
+						await contractParcela.methods.getParcela(i).call({from: cuenta}, (error, result) => {
+						
+							console.log("Dron Disponible=" + result[5])
+							console.log("Parcelaid=" + result[0])
+							console.log("ParcelaLongitud=" + result[3])
+							
+							if (result[5]!='undefined'){
+								document.getElementById('field_1' + i).value = result[0]
+								document.getElementById('field_2' + i).value = result[3]
+							}
+							
+						
+							j++;
+												
+					});
+				}
+			}
+			
+			
+			function getParcelaCreated(){
+			
+				getTotalParcelas()
+			
+				const contractParcela = new web3.eth.Contract(ABIParcela,direccionContratoParcela); 
+				
+				var e = document.getElementById('cuentas')
+				var cuenta = e.options[e.selectedIndex].text
+				
+				var idParcela=getCookie(cuenta)
+				
+				contractParcela.methods.getParcela(idParcela).call({from: cuenta}, (error, result) => {
+						document.getElementById('idParcela').value= result[0]
+						document.getElementById('altMax').value= result[2]
+						document.getElementById('altMin').value= result[1]
+						document.getElementById('long').value= result[3]
+						document.getElementById('pesticida').value= result[4]
+						
+					});
+				
+			}
+			
+			var cont=0
+			async function solicitaDron(field1,field2,field3,field4,field5,field6,field7,fila){
+			
+				var e = document.getElementById('cuentas')
+				var cuenta = e.options[e.selectedIndex].text
+				
+				idDron=document.getElementById(field1).value
+				altMax=document.getElementById(field2).value
+				altMin=document.getElementById(field3).value
+				longVuelo=document.getElementById(field4).value
+				idParcela=document.getElementById(field5).value
+				precio=document.getElementById(field6).value
+				pesticida=document.getElementById(field7).value
+				
+				console.log("direccionContratoParcela=",direccionContratoParcela)
+				console.log("idDron=",idDron)
+				console.log("altMin=",altMin)
+				console.log("altMax=",altMax)
+				console.log("longVuelo=",longVuelo)
+				console.log("idParcela=",idParcela)
+				console.log("document.getElementById('idParcela')=",document.getElementById('idParcela').value)
+				console.log("precio=",precio)
+				console.log("pesticida=",pesticida)
+			
+				var contractDron = new web3.eth.Contract(ABIDron,direccionContratoDron);
+				
+				///////estimacion de gas/////////////////////////////
+				var gas1
+				
+				await contractDron.methods.solicitaDron(direccionContratoParcela,parseInt(idDron),altMin,altMax,longVuelo,idParcela,parseInt(document.getElementById('idParcela').value),pesticida).estimateGas(function(error, gasAmount){
+					console.log('El gas es===' + gasAmount);
+					gas1 = gasAmount
+				});
+								
+				////////////////////////////////////////////////////
+				
+				
+				var isOK=contractDron.methods.solicitaDron(direccionContratoParcela,parseInt(idDron),altMin,altMax,longVuelo,idParcela,parseInt(document.getElementById('idParcela').value),pesticida)
+								.send({from: cuenta, gas: parseInt(gas1)}, (error, transactionHash) => {  })
+								.on('error', (error) => { 
+									alert(error)
+									console.log("error" + error)
+									
+								})
+								.on('receipt', (receipt) => {
+									console.log("Dron validado")
+									console.log(receipt)
+									console.log("getCookie('idRequested')=" + getCookie('idRequested'))
+									setCookie('idDron'+idDron,idDron)
+																		
+									console.log("Dron is OK??...:" + receipt.events.DronRequested.returnValues.isValidate);
+									//setCookie(propietario,receipt.events.ParcelaCreada.returnValues.idParcela,2);
+									payDronService(precio,fila)
+								});
+			}
+			
+			async function payDronService(precio,fila){
+				var e = document.getElementById('cuentas')
+				var cuentaParcela = e.options[e.selectedIndex].text
+			
+				var contractCoin = new web3.eth.Contract(ABICoin,direccionContratoCoin);
+				
+				///////estimacion de gas/////////////////////////////
+				var gas1
+				
+				await contractCoin.methods.approve(cuentaPropietariaDron,precio).estimateGas(function(error, gasAmount){
+					console.log('El gas es===' + gasAmount);
+					gas1 = gasAmount
+				});
+								
+				////////////////////////////////////////////////////
+				
+				
+				contractCoin.methods.approve(cuentaPropietariaDron,precio)
+								.send({from: cuentaParcela, gas: parseInt(gas1)}, (error, transactionHash) => {  })
+								.on('error', (error) => { 
+									console.log("error en approve" + error)
+									
+								})
+								.on('receipt', (receipt) => {
+									console.log("Se hizo el approve")
+									console.log(receipt)
+									console.log("Hacemos el TransferFrom")
+									transferFrom(cuentaParcela,precio,fila)								
+								});
+				
+			}
+			
+			async function transferFrom(cuentaParcela,precio,fila){
+				var contractCoin2 = new web3.eth.Contract(ABICoin,direccionContratoCoin);
+				
+				///////estimacion de gas/////////////////////////////
+				var gas1
+				
+				await contractCoin2.methods.transferFrom(cuentaParcela,cuentaPropietariaDron,precio).estimateGas(function(error, gasAmount){
+					console.log('El gas es===' + gasAmount);
+					gas1 = gasAmount
+				});
+								
+				////////////////////////////////////////////////////
+				
+				contractCoin2.methods.transferFrom(cuentaParcela,cuentaPropietariaDron,precio)
+								.send({from: cuentaPropietariaDron, gas: 3000000}, (error, transactionHash) => {  })
+								.on('error', (error) => { 
+									console.log("error en transferFrom" + error)
+									
+								})
+								.on('receipt', (receipt) => {
+									console.log("Se hizo el transferFrom")
+									console.log(receipt)
+									alert("Se realizó la compra de forma exitosa")
+									
+									document.getElementById('field' + fila + '1').value = ""
+									document.getElementById('field' + fila + '2').value = ""
+									document.getElementById('field' + fila + '3').value = ""
+									document.getElementById('field' + fila + '4').value = ""
+									document.getElementById('field' + fila + '5').value = ""
+									document.getElementById('field' + fila + '6').value = ""
+									document.getElementById('field' + fila + '7').value = ""
+																	
+								});
+			}
+			
+			function setCookie(cname, cvalue, exdays) {
+			  var d = new Date();
+			  d.setTime(d.getTime() + (exdays*24*60*60*1000));
+			  var expires = "expires="+ d.toUTCString();
+			  document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+			}
+			
+			function getCookie(cname) {
+			  var name = cname + "=";
+			  var decodedCookie = decodeURIComponent(document.cookie);
+			  var ca = decodedCookie.split(';');
+			  for(var i = 0; i <ca.length; i++) {
+				var c = ca[i];
+				while (c.charAt(0) == ' ') {
+				  c = c.substring(1);
+				}
+				if (c.indexOf(name) == 0) {
+				  return c.substring(name.length, c.length);
+				}
+			  }
+			  return "";
+			}
+			
+			function limpiagrillaSolicitados(){
+				for(i=1;i<=6;i++){
+					document.getElementById('field' + i + '1').value= ""
+					document.getElementById('field' + i + '2').value= ""
+					document.getElementById('field' + i + '3').value= ""
+					document.getElementById('field' + i + '4').value= ""
+					document.getElementById('field' + i + '5').value= ""
+					document.getElementById('field' + i + '6').value= ""
+					document.getElementById('field' + i + '7').value= ""
+				}
+			}
+			
+		</script>
+	</head>
+	<body>
+		<p><b>Compra Servicio Dron</b>
+		<br>
+	
+		<br>Propietario Parcela<select id="cuentas" onchange="getParcelaCreated()"></select>
+		<br>
+		<br>Datos Parcela:
+		<br><table>
+				<tr>
+					<td>Id Parcela:</td>
+					<td><input type="label" id="idParcela" /></td>
+				</tr>
+				<tr>
+					<td>Altura Maxima:</td>
+					<td><input type="label" id="altMax" /></td>
+				</tr>
+				<tr>
+					<td>Altura Minima:</td>
+					<td><input type="label" id="altMin" /></td>
+				</tr>
+				<tr>
+					<td>Longitud:</td>
+					<td><input type="label" id="long" /></td>
+				</tr>
+				<tr>
+					<td>Pesticida:</td>
+					<td><input type="label" id="pesticida" /></td>
+				</tr>
+			</table>
+		
+		
+		<br>Ruta de Parcelas
+		<br>
+			<table>
+				<tr>
+					<td>Parcela</td>
+					<td><input type="label" id="field_11" size="4"/>=></td>
+					<td><input type="label" id="field_12" size="4"/>=></td>
+					<td><input type="label" id="field_13" size="4"/>=></td>
+					<td><input type="label" id="field_14" size="4"/>=></td>
+					<td><input type="label" id="field_15" size="4"/>=></td>
+					<td><input type="label" id="field_16" size="4"/></td>
+					
+				</tr>
+				<tr>
+					<td>Longitud (mt)</td>
+					<td><input type="label" id="field_21" size="4"/>=></td>
+					<td><input type="label" id="field_22" size="4"/>=></td>
+					<td><input type="label" id="field_23" size="4"/>=></td>
+					<td><input type="label" id="field_24" size="4"/>=></td>
+					<td><input type="label" id="field_25" size="4"/>=></td>
+					<td><input type="label" id="field_26" size="4"/></td>
+				</tr>
+				
+				
+			</table>
+	
+		<br>
+		<input type="button" value="Buscar Drones Disponibles" onclick="getDronCreated()"/>
+		
+		
+		<br><table>
+				<tr>
+					<td>ID Dron</td>
+					<td>Altura Maxima (mt)</td>
+					<td>Altura Minima (mt)</td>
+					<td>Longitud de Vuelo (mt)</td>
+					<td>ID Parcela</td>
+					<td>Costo (+$)</td>
+					<td>Pesticida</td>
+					<td>Solicitar</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field11" />
+					</td>
+					<td>
+						<input type="label" id="field12" />
+					</td>
+					<td>
+						<input type="label" id="field13" />
+					</td>
+					<td>
+						<input type="label" id="field14" />
+					</td>
+					<td>
+						<input type="label" id="field15" />
+					</td>
+					<td>
+						<input type="label" id="field16" />
+					</td>
+					<td>
+						<input type="label" id="field17" />
+					</td>
+					<td>
+						<input type="button" value="Compra Servicio" id="field18" onclick="solicitaDron('field11','field12','field13','field14','field15','field16','field17',1)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field21" />
+					</td>
+					<td>
+						<input type="label" id="field22" />
+					</td>
+					<td>
+						<input type="label" id="field23" />
+					</td>
+					<td>
+						<input type="label" id="field24" />
+					</td>
+					<td>
+						<input type="label" id="field25" />
+					</td>
+					<td>
+						<input type="label" id="field26" />
+					</td>
+					<td>
+						<input type="label" id="field27" />
+					</td>
+					<td>
+						<input type="button" value="Compra Servicio" id="field28" onclick="solicitaDron('field21','field22','field23','field24','field25','field26','field27',2)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field31" />
+					</td>
+					<td>
+						<input type="label" id="field32" />
+					</td>
+					<td>
+						<input type="label" id="field33" />
+					</td>
+					<td>
+						<input type="label" id="field34" />
+					</td>
+					<td>
+						<input type="label" id="field35" />
+					</td>
+					<td>
+						<input type="label" id="field36" />
+					</td>
+					<td>
+						<input type="label" id="field37" />
+					</td>
+					<td>
+						<input type="button" value="Compra Servicio" id="field38" onclick="solicitaDron('field31','field32','field33','field34','field35','field36','field37',3)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field41" />
+					</td>
+					<td>
+						<input type="label" id="field42" />
+					</td>
+					<td>
+						<input type="label" id="field43" />
+					</td>
+					<td>
+						<input type="label" id="field44" />
+					</td>
+					<td>
+						<input type="label" id="field45" />
+					</td>
+					<td>
+						<input type="label" id="field46" />
+					</td>
+					<td>
+						<input type="label" id="field47" />
+					</td>
+					<td>
+						<input type="button" value="Compra Servicio" id="field48" onclick="solicitaDron('field41','field42','field43','field44','field45','field46','field47',4)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field51" />
+					</td>
+					<td>
+						<input type="label" id="field52" />
+					</td>
+					<td>
+						<input type="label" id="field53" />
+					</td>
+					<td>
+						<input type="label" id="field54" />
+					</td>
+					<td>
+						<input type="label" id="field55" />
+					</td>
+					<td>
+						<input type="label" id="field56" />
+					</td>
+					<td>
+						<input type="label" id="field57" />
+					</td>
+					<td>
+						<input type="button" value="Compra Servicio" id="field58" onclick="solicitaDron('field51','field52','field53','field54','field55','field56','field57',5)"/>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<input type="label" id="field61" />
+					</td>
+					<td>
+						<input type="label" id="field62" />
+					</td>
+					<td>
+						<input type="label" id="field63" />
+					</td>
+					<td>
+						<input type="label" id="field64" />
+					</td>
+					<td>
+						<input type="label" id="field65" />
+					</td>
+					<td>
+						<input type="label" id="field66" />
+					</td>
+					<td>
+						<input type="label" id="field67" />
+					</td>
+					<td>
+						<input type="button" value="Compra Servicio" id="field68" onclick="solicitaDron('field61','field62','field63','field64','field65','field66','field67',6)"/>
+					</td>
+				</tr>
+			</table>
+	</body>
+</html>
